@@ -36,9 +36,13 @@ const PROXY_HOST = 'https://api.niubi.win'; // 👈 填你刚绑定的域名
 const targetUrl = `${PROXY_HOST}/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
     
     console.log('Forwarding request to Gemini...');
-    const googleRes = await axios.post(targetUrl, {
+        const googleRes = await axios.post(targetUrl, {
       contents,
-      generationConfig
+      // 🔥 注入高阶思维参数
+      generationConfig: {
+        ...generationConfig, 
+        thinking_level: "high" 
+      }
     }, {
       headers: { 'Content-Type': 'application/json' },
       timeout: 60000
