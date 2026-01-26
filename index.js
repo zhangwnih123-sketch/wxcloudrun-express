@@ -30,7 +30,7 @@ app.post('/gemini', async (req, res) => {
       return res.status(500).json({ error: 'Server configuration error: GEMINI_API_KEY is missing' });
     }
 
-    const MODEL_NAME = 'gemini-3.0-flash'; 
+    const MODEL_NAME = 'gemini-3-flash-preview'; 
    // 使用终极霸气反代域名
 const PROXY_HOST = 'https://api.niubi.win'; // 👈 填你刚绑定的域名
 const targetUrl = `${PROXY_HOST}/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
