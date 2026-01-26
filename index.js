@@ -31,7 +31,9 @@ app.post('/gemini', async (req, res) => {
     }
 
     const MODEL_NAME = 'gemini-2.0-flash-exp';
-    const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
+    // 使用 Vercel 反代解决国内连通性问题
+const PROXY_HOST = 'https://666-kohl.vercel.app'; // 👈 填你的 Vercel 域名
+const targetUrl = `${PROXY_HOST}/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
     
     console.log('Forwarding request to Gemini...');
     const googleRes = await axios.post(targetUrl, {
