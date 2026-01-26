@@ -31,8 +31,8 @@ app.post('/gemini', async (req, res) => {
     }
 
     const MODEL_NAME = 'gemini-2.0-flash-exp';
-    // 使用 Vercel 反代解决国内连通性问题
-const PROXY_HOST = 'https://666-kohl.vercel.app'; // 👈 填你的 Vercel 域名
+   // 使用终极霸气反代域名
+const PROXY_HOST = 'https://api.niubi.win'; // 👈 填你刚绑定的域名
 const targetUrl = `${PROXY_HOST}/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
     
     console.log('Forwarding request to Gemini...');
