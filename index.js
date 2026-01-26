@@ -41,7 +41,6 @@ const targetUrl = `${PROXY_HOST}/v1beta/models/${MODEL_NAME}:generateContent?key
       // 🔥 注入高阶思维参数
       generationConfig: {
         ...generationConfig, 
-        thinking_level: "high" 
       }
     }, {
       headers: { 'Content-Type': 'application/json' },
