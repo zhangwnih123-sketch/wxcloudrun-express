@@ -1,70 +1,40 @@
-const path = require('path');
-const express = require('express');
-const cors = require('cors');
-const morgan = require('morgan');
-const axios = require('axios');
+const path = require('path')
+const express = require('express')
+const cors = require('cors')
+const morgan = require('morgan')
+const axios = require('axios')
 
-const logger = morgan('tiny');
-const app = express();
+const app = express()
+app.use(express.urlencoded({ extended: false }))
+app.use(express.json())
+app.use(cors())
+app.use(morgan('tiny'))
 
-app.use(express.urlencoded({ extended: false }));
-app.use(express.json());
-app.use(cors());
-app.use(logger);
+app.get('/', (req, res) => res.send('ok'))
+app.get('/health', (req, res) => res.send('ok'))
 
-// 首页
-app.get('/', async (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
-});
-
-// --- Gemini 中转接口 ---
 app.post('/gemini', async (req, res) => {
   try {
-    const { contents, generationConfig } = req.body;
-    
-    // 从环境变量获取 API Key
-    const apiKey = process.env.GEMINI_API_KEY; 
-    
+    const { contents, generationConfig } = req.body || {}
+    const apiKey = process.env.GEMINI_API_KEY
     if (!apiKey) {
-      console.error('Missing GEMINI_API_KEY');
-      return res.status(500).json({ error: 'Server configuration error: GEMINI_API_KEY is missing' });
+      res.status(500).json({ error: 'GEMINI_API_KEY missing' })
+      return
     }
-
-    const MODEL_NAME = 'gemini-2.0-flash'; 
-   // 使用终极霸气反代域名
-const PROXY_HOST = 'https://api.niubi.win'; // 👈 填你刚绑定的域名
-const targetUrl = `${PROXY_HOST}/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
-    
-    console.log('Forwarding request to Gemini...');
-        const googleRes = await axios.post(targetUrl, {
-      contents,
-      // 🔥 注入高阶思维参数
-      generationConfig: {
-        ...generationConfig, 
-      }
-    }, {
-      headers: { 'Content-Type': 'application/json' },
-      timeout: 60000
-    });
-
-    res.json(googleRes.data);
-
+    const proxyHost = (process.env.PROXY_HOST || 'https://api.niubi.win').replace(/\/+$/, '')
+    const model = process.env.MODEL_NAME || 'gemini-2.0-flash'
+    const targetUrl = `${proxyHost}/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
+    const googleRes = await axios.post(
+      targetUrl,
+      { contents, generationConfig: { ...(generationConfig || {}) } },
+      { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
+    )
+    res.json(googleRes.data)
   } catch (error) {
-    console.error('Gemini Proxy Error:', error.response?.data || error.message);
-    res.status(error.response?.status || 500).json({
-      error: 'Proxy request failed',
-      details: error.response?.data || error.message
-    });
+    const status = error.response?.status || 500
+    res.status(status).json({ error: 'Proxy request failed', details: error.response?.data || error.message })
   }
-});
+})
 
-// 启动服务
-const port = process.env.PORT || 80;
-async function bootstrap() {
-  // await initDB(); // 这一行删掉或注释掉，不需要数据库
-  app.listen(port, () => {
-    console.log('启动成功', port);
-  });
-}
-
-bootstrap();
+const port = parseInt(process.env.PORT || '80', 10)
+app.listen(port)
