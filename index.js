@@ -1,51 +1,70 @@
-const express = require('express')
-const app = express()
-const https = require('https')
+const path = require('path');
+const express = require('express');
+const cors = require('cors');
+const morgan = require('morgan');
+const axios = require('axios');
 
-app.use(express.json())
+const logger = morgan('tiny');
+const app = express();
 
-function postJSON(url, json) {
-  return new Promise((resolve, reject) => {
-    const u = new URL(url)
-    const data = Buffer.from(JSON.stringify(json))
-    const opts = {
-      hostname: u.hostname,
-      path: u.pathname + u.search,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Content-Length': data.length
-      }
-    }
-    const req = https.request(opts, res => {
-      let d = ''
-      res.on('data', c => d += c)
-      res.on('end', () => {
-        try { resolve(JSON.parse(d)) } catch (e) { reject(e) }
-      })
-    })
-    req.on('error', reject)
-    req.write(data)
-    req.end()
-  })
-}
+app.use(express.urlencoded({ extended: false }));
+app.use(express.json());
+app.use(cors());
+app.use(logger);
 
-app.get('/', (req, res) => res.send('ok'))
-app.get('/health', (req, res) => res.send('ok'))
+// 首页
+app.get('/', async (req, res) => {
+  res.sendFile(path.join(__dirname, 'index.html'));
+});
 
+// --- Gemini 中转接口 ---
 app.post('/gemini', async (req, res) => {
   try {
-    const geminiKey = process.env.GEMINI_API_KEY
-    const body = req.body || {}
-    const orig = Array.isArray(body.contents) ? body.contents : []
-    body.contents = orig
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${encodeURIComponent(geminiKey || '')}`
-    const out = await postJSON(url, body)
-    res.status(200).json(out)
-  } catch (e) {
-    res.status(500).json({ error: { message: 'SERVER_ERROR' } })
-  }
-})
+    const { contents, generationConfig } = req.body;
+    
+    // 从环境变量获取 API Key
+    const apiKey = process.env.GEMINI_API_KEY; 
+    
+    if (!apiKey) {
+      console.error('Missing GEMINI_API_KEY');
+      return res.status(500).json({ error: 'Server configuration error: GEMINI_API_KEY is missing' });
+    }
 
-const port = parseInt(process.env.PORT || '80', 10)
-app.listen(port)
+    const MODEL_NAME = 'gemini-2.0-flash'; 
+   // 使用终极霸气反代域名
+const PROXY_HOST = 'https://api.niubi.win'; // 👈 填你刚绑定的域名
+const targetUrl = `${PROXY_HOST}/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
+    
+    console.log('Forwarding request to Gemini...');
+        const googleRes = await axios.post(targetUrl, {
+      contents,
+      // 🔥 注入高阶思维参数
+      generationConfig: {
+        ...generationConfig, 
+      }
+    }, {
+      headers: { 'Content-Type': 'application/json' },
+      timeout: 60000
+    });
+
+    res.json(googleRes.data);
+
+  } catch (error) {
+    console.error('Gemini Proxy Error:', error.response?.data || error.message);
+    res.status(error.response?.status || 500).json({
+      error: 'Proxy request failed',
+      details: error.response?.data || error.message
+    });
+  }
+});
+
+// 启动服务
+const port = process.env.PORT || 80;
+async function bootstrap() {
+  // await initDB(); // 这一行删掉或注释掉，不需要数据库
+  app.listen(port, () => {
+    console.log('启动成功', port);
+  });
+}
+
+bootstrap();
