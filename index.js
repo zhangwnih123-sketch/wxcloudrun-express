@@ -54,7 +54,7 @@ app.post('/gemini', async (req, res) => {
     }
     const targetUrl = `${proxyHost}/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
     const payload = { contents, generationConfig: { ...(generationConfig || {}) } }
-    const data = await requestWithRetry(targetUrl, payload, { timeoutMs: 5000, retries: 2, backoffMs: 800 })
+    const data = await requestWithRetry(targetUrl, payload, { timeoutMs: 60000, retries: 2, backoffMs: 800 })
     res.json(data)
   } catch (error) {
     const status = error.status || 500
