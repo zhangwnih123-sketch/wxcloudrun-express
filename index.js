@@ -1,5 +1,5 @@
 // index.js
-const config = require('../../config.js');
+
 
 // 物理参数配置
 const PHYSICS = {
