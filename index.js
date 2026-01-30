@@ -93,7 +93,7 @@ app.post('/gemini', async (req, res) => {
       if (targetSymbol) {
         console.log(`侦测到金融意图: ${targetSymbol}, 正在抓取...`);
         // 👇 请确认这里的域名是你刚刚部署成功的 Cloudflare Worker 域名
-        const workerUrl = `https://gemini-proxy.zhangwnih99.workers.dev/finance?symbol=${targetSymbol}`;
+        const workerUrl = `https://api.niubi.win/finance?symbol=${targetSymbol}`;
         
         const financeRes = await axios.get(workerUrl, { timeout: 3000 });
         const fData = financeRes.data;
