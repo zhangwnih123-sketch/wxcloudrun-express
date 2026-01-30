@@ -9,12 +9,12 @@ app.use(express.json())
 app.use(cors())
 app.use(morgan('tiny'))
 
+// 重试请求的辅助函数 (保持不变)
 async function requestWithRetry(url, data, options = {}) {
   const timeout = options.timeoutMs || 5000
   const retries = options.retries ?? 2
   const backoff = options.backoffMs || 1000
   let attempt = 0
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     try {
       const res = await axios.post(url, data, {
@@ -42,25 +42,107 @@ async function requestWithRetry(url, data, options = {}) {
 app.get('/', (req, res) => res.send('ok'))
 app.get('/health', (req, res) => res.send('ok'))
 
+// -------------------------------------------------------
+// 🤖 核心接口：Gemini 转发 (已增强)
+// -------------------------------------------------------
 app.post('/gemini', async (req, res) => {
   try {
     const { contents, generationConfig } = req.body || {}
     const apiKey = process.env.GEMINI_API_KEY
+    // 注意：这里 proxyHost 只用于转发 Gemini 请求，不用改，通常是 api.niubi.win 或你的 worker
     const proxyHost = (process.env.PROXY_HOST || 'https://api.niubi.win').replace(/\/+$/, '')
     const model = process.env.MODEL_NAME || 'gemini-2.0-flash'
+
     if (!apiKey) {
       res.status(500).json({ error: 'MISSING_GEMINI_API_KEY' })
       return
     }
+
+    // =====================================================
+    // 💰 金融数据增强模块 (Start)
+    // =====================================================
+    try {
+      // 1. 获取用户最后一条消息
+      const lastUserMsg = contents?.[contents.length - 1]?.parts?.[0]?.text || ""
+      
+      // 2. 简单的关键词映射表 (关键词 -> Yahoo/Binance 代码)
+      const symbolMap = {
+        'BTC': 'BTC-USD', '比特币': 'BTC-USD',
+        'ETH': 'ETH-USD', '以太坊': 'ETH-USD',
+        'DOGE': 'DOGE-USD', '狗狗币': 'DOGE-USD',
+        'SOL': 'SOL-USD',
+        '黄金': 'GC=F', '金价': 'GC=F',
+        '白银': 'SI=F',
+        '原油': 'CL=F',
+        '道指': '^DJI', '道琼斯': '^DJI',
+        '纳指': '^IXIC', '纳斯达克': '^IXIC',
+        '标普': '^GSPC',
+        '苹果': 'AAPL', 'APPLE': 'AAPL',
+        '英伟达': 'NVDA', 'NVIDIA': 'NVDA',
+        '特斯拉': 'TSLA',
+        '微软': 'MSFT',
+        '谷歌': 'GOOG',
+        '茅台': '600519.SS' // A股
+      };
+
+      let targetSymbol = null;
+      // 遍历关键词，找到匹配的品种
+      for (const [key, code] of Object.entries(symbolMap)) {
+        if (lastUserMsg.toUpperCase().includes(key)) {
+          targetSymbol = code;
+          break; // 找到一个就停止，避免冲突
+        }
+      }
+
+      // 3. 如果命中关键词，去 Cloudflare Worker 抓取数据
+      if (targetSymbol) {
+        console.log(`侦测到金融意图: ${targetSymbol}, 正在抓取...`);
+        // 👇 请确认这里的域名是你刚刚部署成功的 Worker 域名
+        const workerUrl = `https://gemini-proxy.zhangwnih99.workers.dev/finance?symbol=${targetSymbol}`;
+        
+        // 使用 axios 发起 GET 请求
+        const financeRes = await axios.get(workerUrl, { timeout: 3000 });
+        const fData = financeRes.data;
+
+        if (fData && fData.price) {
+          // 4. 构造数据提示词
+          const injectText = `
+【⚡️ 实时市场数据注入】
+数据来源: ${fData.source || 'Real-time API'}
+标的名称: ${fData.name || fData.symbol}
+当前价格: ${fData.currency} ${fData.price}
+今日涨跌: ${fData.percent}
+更新状态: ${fData.marketState || 'Active'}
+(请基于以上实时数据回答用户的价格问题)
+          `;
+          
+          // 5. 将数据拼接到用户消息的末尾 (这样 AI 就能看到了)
+          // 确保 contents 结构存在
+          if (contents && contents.length > 0 && contents[contents.length - 1].parts) {
+             contents[contents.length - 1].parts[0].text += `\n${injectText}`;
+          }
+        }
+      }
+    } catch (e) {
+      // 容错：如果抓取失败，仅仅打印日志，不影响主流程，让 AI 自己去处理
+      console.error('金融数据抓取失败 (非致命):', e.message);
+    }
+    // =====================================================
+    // 💰 金融数据增强模块 (End)
+    // =====================================================
+
     const targetUrl = `${proxyHost}/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
+    
     const payload = { 
-  contents, 
-  // 👇 核心修改：加入这一行配置，就激活了 Google 搜索
-  tools: [{ googleSearch: {} }],
-  generationConfig: { ...(generationConfig || {}) } 
-}
+      contents, 
+      // 保持 Google 搜索工具开启，作为兜底
+      tools: [{ googleSearch: {} }],
+      generationConfig: { ...(generationConfig || {}) } 
+    }
+    
     const data = await requestWithRetry(targetUrl, payload, { timeoutMs: 60000, retries: 2, backoffMs: 800 })
     res.json(data)
+
   } catch (error) {
     const status = error.status || 500
     res.status(status).json({ error: error.message || 'SERVER_ERROR', details: error.details || '' })
@@ -68,4 +150,6 @@ app.post('/gemini', async (req, res) => {
 })
 
 const port = parseInt(process.env.PORT || '80', 10)
-app.listen(port)
+app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+})
