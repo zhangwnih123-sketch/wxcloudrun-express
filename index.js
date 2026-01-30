@@ -124,19 +124,27 @@ app.post('/gemini', async (req, res) => {
     // =====================================================
     // ✂️ 全局“四字斩” (加在所有对话的最后)
     // =====================================================
-    // ✅ 新代码：专治粒子卡死 + 拒绝废话
+    // ✅ 终极版：真实搜索 + 智能压缩
     if (contents && contents.length > 0 && contents[contents.length - 1].parts) {
         const userText = contents[contents.length - 1].parts[0].text;
         
-        // 核心指令：
-        // 1. 字数必须少（防卡死）
-        // 2. 内容必须硬（逼它用四字行话）
+        // 核心指令升级：
+        // 1. 遇到“为什么/原因”，强制先用 Google 搜索最新新闻。
+        // 2. 读懂新闻后，把“核心原因”翻译成 4 个字的行话。
         const particlePrompt = `
-        (System Warning: Frontend crashes if output > 7 chars.
-         1. STRICT LIMIT: Output MUST be 2-6 Chinese characters.
-         2. INTELLIGENCE: If asked "WHY/REASON", use professional financial idioms instead of "I guess".
-         3. BAD examples: "我猜的", "不知道", "可能吧".
-         4. GOOD examples: "缩量阴跌", "主力出货", "技术破位", "情绪释放", "超卖反弹".)
+        (System Task:
+         1. IF user asks "WHY/REASON" (e.g. 为啥, 原因):
+            - STEP A: You MUST use [Google Search] tool to find LATEST news/analysis about the asset.
+            - STEP B: Identify the REAL driver (CPI data, War, Fed rate, Earnings, etc.).
+            - STEP C: Compress the finding into 4-6 Chinese characters.
+         
+         2. EXAMPLES of "Real News" -> "Compressed Output":
+            - (News: Fed raised interest rates) -> Output: "加息落地"
+            - (News: War tension in Middle East) -> Output: "地缘避险"
+            - (News: Company report bad earnings) -> Output: "业绩爆雷"
+            - (News: Inflation data is high) -> Output: "通胀超预"
+            
+         3. CONSTRAINT: STRICTLY under 8 chars. No explanation, just the keyword.)
         `;
         
         contents[contents.length - 1].parts[0].text = userText + particlePrompt;
