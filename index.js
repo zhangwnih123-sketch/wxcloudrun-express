@@ -124,9 +124,22 @@ app.post('/gemini', async (req, res) => {
     // =====================================================
     // ✂️ 全局“四字斩” (加在所有对话的最后)
     // =====================================================
+    // ✅ 新代码：专治粒子卡死 + 拒绝废话
     if (contents && contents.length > 0 && contents[contents.length - 1].parts) {
         const userText = contents[contents.length - 1].parts[0].text;
-        contents[contents.length - 1].parts[0].text = userText + " (回答仅限4个字以内！多字不回！)";
+        
+        // 核心指令：
+        // 1. 字数必须少（防卡死）
+        // 2. 内容必须硬（逼它用四字行话）
+        const particlePrompt = `
+        (System Warning: Frontend crashes if output > 7 chars.
+         1. STRICT LIMIT: Output MUST be 2-6 Chinese characters.
+         2. INTELLIGENCE: If asked "WHY/REASON", use professional financial idioms instead of "I guess".
+         3. BAD examples: "我猜的", "不知道", "可能吧".
+         4. GOOD examples: "缩量阴跌", "主力出货", "技术破位", "情绪释放", "超卖反弹".)
+        `;
+        
+        contents[contents.length - 1].parts[0].text = userText + particlePrompt;
     }
     // =====================================================
 
