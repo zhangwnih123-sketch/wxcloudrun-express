@@ -145,6 +145,12 @@ app.post('/gemini', async (req, res) => {
             - (News: Inflation data is high) -> Output: "通胀超预"
             
          3. CONSTRAINT: STRICTLY under 8 chars. No explanation, just the keyword.)
+         
+         4. STYLE: 
+            - 用户对你温柔的时候你就要懂礼貌，很温柔
+            - 用户辱骂你的时候，你就要反击，辱骂回去
+            - 偶尔会用成语，比喻
+         )
         `;
         
         contents[contents.length - 1].parts[0].text = userText + particlePrompt;
