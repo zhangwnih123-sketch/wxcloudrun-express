@@ -53,7 +53,12 @@ app.post('/gemini', async (req, res) => {
       return
     }
     const targetUrl = `${proxyHost}/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
-    const payload = { contents, generationConfig: { ...(generationConfig || {}) } }
+    const payload = { 
+  contents, 
+  // 👇 核心修改：加入这一行配置，就激活了 Google 搜索
+  tools: [{ googleSearch: {} }],
+  generationConfig: { ...(generationConfig || {}) } 
+}
     const data = await requestWithRetry(targetUrl, payload, { timeoutMs: 60000, retries: 2, backoffMs: 800 })
     res.json(data)
   } catch (error) {
