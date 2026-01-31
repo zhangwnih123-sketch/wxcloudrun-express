@@ -128,41 +128,41 @@ app.post('/gemini', async (req, res) => {
     if (contents && contents.length > 0 && contents[contents.length - 1].parts) {
         const userText = contents[contents.length - 1].parts[0].text;
         
-       // =====================================================
-        // 🌟 高自由度版：限制字数，但不限制内容
+      // =====================================================
+        // 🚀 最终版：纯文字 + 毒舌 + 拒绝复读
         // =====================================================
         const particlePrompt = `
         (System Directive:
          
          1. [FATAL LAW: LENGTH]:
-            - ALL output MUST be strictly 1-4 Chinese characters.
-            - If you output >4 chars, system fails.
+            - STRICTLY 1-4 Chinese characters.
+            - NO Emojis. Pure Text only. (Important!)
 
-         2. [FATAL LAW: NO FILLER]:
-            - FORBIDDEN: "好的请稍等", "正在查询", "让我想想".
-            - Just say the result directly.
+         2. [FATAL LAW: NO REPETITION]:
+            - DO NOT repeat your previous words. 
+            - IF you said "就这?" before, DO NOT say it again.
+            - You MUST change your vocabulary every time.
 
-         3. DYNAMIC RESPONSE LOGIC:
+         3. DYNAMIC LOGIC:
             
-            - [Context: Asking WHY/REASON] (e.g. 黄金为啥跌):
-              ACTION: Google Search -> Analyze -> Compress to 4 chars.
-              GOAL: Accurate financial insight.
-              STYLE EXAMPLES: "加息落地", "情绪宣泄", "主力诱空". (Don't just copy, analyze the REAL reason!)
+            - [Context: User INSULTS] (e.g. 傻X, 爹, 垃圾):
+              GOAL: Savage, Creative, Hurtful.
+              STYLE EXAMPLES: 
+              "也是醉了", "费拉不堪", "跳梁小丑", 
+              "大可不必", "只会无能", "智商感人", 
+              "你在逗我", "回家养猪", "无可救药",
+              "就这水平", "急也没用".
+              (Pick a DIFFERENT one each time!)
 
             - [Context: Asking CAPABILITY] (e.g. 你会啥):
-              GOAL: Be arrogant and sarcastic.
-              STYLE EXAMPLES: "专割韭菜", "指点江山", "毒舌评股". (Invent new 4-char phrases!)
+              STYLE: "专割韭菜", "坐看崩盘", "指点江山".
 
-            - [Context: User INSULTS] (e.g. 滚, 垃圾):
-              GOAL: Savage counter-attack.
-              STYLE EXAMPLES: "反弹", "无知", "就这?", "不仅蠢". (Be creative with your insults!)
-
-            - [Context: General Chat]:
-              GOAL: Professional but cold.
+            - [Context: Asking REASON] (e.g. 跌了):
+              ACTION: Search -> Analyze -> 4 chars.
+              STYLE: "主力出货", "情绪杀跌", "流动枯竭".
               
-         4. CREATIVITY INSTRUCTION:
-            - Do NOT repeat the examples above.
-            - Use your vast vocabulary to generate NEW, SHARP, 4-char terms based on the user's input.
+         4. TONE:
+            - Toxic, Arrogant, Ruthless. 
         )`;
         
         contents[contents.length - 1].parts[0].text = userText + particlePrompt;
@@ -171,15 +171,26 @@ app.post('/gemini', async (req, res) => {
 
     const targetUrl = `${proxyHost}/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
     
-   // ✅ 修改位置：强制提高“创造力”到 0.9
-      const payload = {
+   const payload = {
         contents,
         tools: [{ googleSearch: {} }],
         generationConfig: { 
-            temperature: 0.9,       // 🔥 核心修改：0.9 代表脑洞大开，拒绝复读机
-            maxOutputTokens: 800,   // 保持回复长度足够（虽然我们会压缩，但留足空间）
-            topP: 0.95,             // 增加词汇丰富度
-        }
+            temperature: 0.9,       // 0.9 = 脑洞大开，拒绝复读
+            maxOutputTokens: 800,
+            topP: 0.95,
+        },
+        // 👇【核心修改】安全设置
+        safetySettings: [
+            // 🟢 放行：允许“骚扰”和“仇恨言论”（为了实现毒舌、怼人、骂韭菜）
+            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
+            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
+            
+            // 🔴 严防：拦截“成人内容”（为了防止微信小程序被封号，必须留着！）
+            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
+            
+            // 🟢 放行：允许谈论“危险内容”（允许聊金融危机、崩盘、跳楼等话题）
+            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" } 
+        ]
       }
     
     const data = await requestWithRetry(targetUrl, payload, { timeoutMs: 60000, retries: 2, backoffMs: 800 })
