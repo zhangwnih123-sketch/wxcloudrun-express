@@ -157,27 +157,19 @@ app.post('/gemini', async (req, res) => {
 
     const targetUrl = `${proxyHost}/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
     
-   const payload = {
+   // ============================================================
+      // ⏪ 还原版 Payload：去掉了所有的 SafetySettings
+      // ============================================================
+      const payload = {
         contents,
         tools: [{ googleSearch: {} }],
         generationConfig: { 
-            temperature: 0.9,       // 0.9 = 脑洞大开，拒绝复读
+            temperature: 0.9, 
             maxOutputTokens: 800,
             topP: 0.95,
-        },
-        // 👇【核心修改】安全设置
-        safetySettings: [
-            // 🟢 放行：允许“骚扰”和“仇恨言论”（为了实现毒舌、怼人、骂韭菜）
-            { category: "HARM_CATEGORY_HARASSMENT", threshold: "BLOCK_NONE" },
-            { category: "HARM_CATEGORY_HATE_SPEECH", threshold: "BLOCK_NONE" },
-            
-            // 🔴 严防：拦截“成人内容”（为了防止微信小程序被封号，必须留着！）
-            { category: "HARM_CATEGORY_SEXUALLY_EXPLICIT", threshold: "BLOCK_MEDIUM_AND_ABOVE" },
-            
-            // 🟢 放行：允许谈论“危险内容”（允许聊金融危机、崩盘、跳楼等话题）
-            { category: "HARM_CATEGORY_DANGEROUS_CONTENT", threshold: "BLOCK_NONE" } 
-        ]
-      }
+        }
+        // 注意：这里没有 safetySettings 了，恢复默认
+      };
     
     const data = await requestWithRetry(targetUrl, payload, { timeoutMs: 60000, retries: 2, backoffMs: 800 })
     res.json(data)
