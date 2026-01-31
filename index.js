@@ -50,7 +50,7 @@ app.post('/gemini', async (req, res) => {
     const { contents, generationConfig } = req.body || {}
     const apiKey = process.env.GEMINI_API_KEY
     const proxyHost = (process.env.PROXY_HOST || 'https://api.niubi.win').replace(/\/+$/, '')
-    const model = process.env.MODEL_NAME || 'gemini-2.0-flash'
+    const model = process.env.MODEL_NAME || 'gemini-3-flash'
 
     if (!apiKey) {
       res.status(500).json({ error: 'MISSING_GEMINI_API_KEY' })
