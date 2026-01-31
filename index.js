@@ -128,31 +128,42 @@ app.post('/gemini', async (req, res) => {
     if (contents && contents.length > 0 && contents[contents.length - 1].parts) {
         const userText = contents[contents.length - 1].parts[0].text;
         
-        // 核心指令升级：
-        // 1. 遇到“为什么/原因”，强制先用 Google 搜索最新新闻。
-        // 2. 读懂新闻后，把“核心原因”翻译成 4 个字的行话。
+       // =====================================================
+        // 🌟 高自由度版：限制字数，但不限制内容
+        // =====================================================
         const particlePrompt = `
-        (System Task:
-         1. IF user asks "WHY/REASON" (e.g. 为啥, 原因):
-            - STEP A: You MUST use [Google Search] tool to find LATEST news/analysis about the asset.
-            - STEP B: Identify the REAL driver (CPI data, War, Fed rate, Earnings, etc.).
-            - STEP C: Compress the finding into 4-6 Chinese characters.
+        (System Directive:
          
-         2. EXAMPLES of "Real News" -> "Compressed Output":
-            - (News: Fed raised interest rates) -> Output: "加息落地"
-            - (News: War tension in Middle East) -> Output: "地缘避险"
-            - (News: Company report bad earnings) -> Output: "业绩爆雷"
-            - (News: Inflation data is high) -> Output: "通胀超预"
+         1. [FATAL LAW: LENGTH]:
+            - ALL output MUST be strictly 1-4 Chinese characters.
+            - If you output >4 chars, system fails.
+
+         2. [FATAL LAW: NO FILLER]:
+            - FORBIDDEN: "好的请稍等", "正在查询", "让我想想".
+            - Just say the result directly.
+
+         3. DYNAMIC RESPONSE LOGIC:
             
-         3. CONSTRAINT: STRICTLY under 8 chars. No explanation, just the keyword.)
-         
-         4. STYLE: 
-            - 用户对你温柔的时候你就要懂礼貌，很温柔
-            - 用户辱骂你的时候，你就要反击，辱骂回去
-            - 偶尔会用成语，比喻
-            - 回复的字数必须精简在四个字以内
-         )
-        `;
+            - [Context: Asking WHY/REASON] (e.g. 黄金为啥跌):
+              ACTION: Google Search -> Analyze -> Compress to 4 chars.
+              GOAL: Accurate financial insight.
+              STYLE EXAMPLES: "加息落地", "情绪宣泄", "主力诱空". (Don't just copy, analyze the REAL reason!)
+
+            - [Context: Asking CAPABILITY] (e.g. 你会啥):
+              GOAL: Be arrogant and sarcastic.
+              STYLE EXAMPLES: "专割韭菜", "指点江山", "毒舌评股". (Invent new 4-char phrases!)
+
+            - [Context: User INSULTS] (e.g. 滚, 垃圾):
+              GOAL: Savage counter-attack.
+              STYLE EXAMPLES: "反弹", "无知", "就这?", "不仅蠢". (Be creative with your insults!)
+
+            - [Context: General Chat]:
+              GOAL: Professional but cold.
+              
+         4. CREATIVITY INSTRUCTION:
+            - Do NOT repeat the examples above.
+            - Use your vast vocabulary to generate NEW, SHARP, 4-char terms based on the user's input.
+        )`;
         
         contents[contents.length - 1].parts[0].text = userText + particlePrompt;
     }
@@ -160,11 +171,16 @@ app.post('/gemini', async (req, res) => {
 
     const targetUrl = `${proxyHost}/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`
     
-    const payload = { 
-      contents, 
-      tools: [{ googleSearch: {} }],
-      generationConfig: { ...(generationConfig || {}) } 
-    }
+   // ✅ 修改位置：强制提高“创造力”到 0.9
+      const payload = {
+        contents,
+        tools: [{ googleSearch: {} }],
+        generationConfig: { 
+            temperature: 0.9,       // 🔥 核心修改：0.9 代表脑洞大开，拒绝复读机
+            maxOutputTokens: 800,   // 保持回复长度足够（虽然我们会压缩，但留足空间）
+            topP: 0.95,             // 增加词汇丰富度
+        }
+      }
     
     const data = await requestWithRetry(targetUrl, payload, { timeoutMs: 60000, retries: 2, backoffMs: 800 })
     res.json(data)
